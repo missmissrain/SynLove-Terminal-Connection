@@ -1,0 +1,13 @@
+{
+  "deviceId": "exampleDevice",
+  "relayURL": "https://relay.example.com/v1",
+  "relayToken": "REPLACE_WITH_PRIVATE_RELAY_TOKEN",
+  "serverPublicKey": "GENERATED_BY_SERVER",
+  "runtimeDir": "runtime/client",
+  "keyPath": "privateKeys/DeviceKey.pem",
+  "port": 17863,
+  "token": "REPLACE_WITH_RANDOM_LOCAL_MUSIC_TOKEN",
+  "shellEnabled": false,
+  "ffplay": "ffplay",
+  "volume": 25
+}

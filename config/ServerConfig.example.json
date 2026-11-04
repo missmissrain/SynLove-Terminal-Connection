@@ -1,0 +1,10 @@
+{
+  "relayURL": "https://relay.example.com/v1",
+  "relayToken": "REPLACE_WITH_PRIVATE_RELAY_TOKEN",
+  "adminPort": 17864,
+  "adminToken": "REPLACE_WITH_RANDOM_LOCAL_ADMIN_TOKEN",
+  "runtimeDir": "runtime/server",
+  "keyPath": "privateKeys/ServerKey.pem",
+  "notificationInbox": "",
+  "notificationTarget": ""
+}
