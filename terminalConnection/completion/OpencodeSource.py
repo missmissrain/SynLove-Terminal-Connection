@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from terminalConnection.completion.TaskReport import TaskReport
@@ -37,7 +38,7 @@ class OpencodeSource:
         db_path = self.data_dir / 'opencode.db'
         if not db_path.is_file():
             return []
-        with sqlite3.connect(db_path.resolve().as_uri() + '?mode=ro', uri=True, timeout=5) as conn:
+        with closing(sqlite3.connect(db_path.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
             conn.execute('PRAGMA query_only=ON')
             conn.execute('BEGIN')
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}

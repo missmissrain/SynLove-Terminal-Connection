@@ -4,7 +4,9 @@ import sqlite3
 import tempfile
 import time
 import unittest
+from contextlib import closing
 from pathlib import Path
+from unittest.mock import patch
 from terminalConnection.completion.NoticeText import NoticeText
 from terminalConnection.completion.OpencodeSource import OpencodeSource
 
@@ -18,7 +20,7 @@ class CompletionSourceTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.path = self.root / "opencode.db"
         self.now = int(time.time() * 1000) - 30000
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.executescript("CREATE TABLE session_v2(id TEXT,directory TEXT,title TEXT,time_updated INTEGER,time_archived INTEGER,parent_id TEXT);"
                 "CREATE TABLE session_message(id TEXT,session_id TEXT,type TEXT,seq INTEGER,time_created INTEGER,data TEXT);")
             db.execute("INSERT INTO session_v2 VALUES(?,?,?,?,NULL,NULL)", ("session", str(self.root), "测试", self.now))
@@ -30,7 +32,7 @@ class CompletionSourceTests(unittest.TestCase):
 
     def add_message(self, seq, kind, data):
         """seq为序号，kind为事件类型，data为真实JSON结构；写入一个隔离事件。"""
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("INSERT INTO session_message VALUES(?,?,?,?,?,?)",
                 (str(seq), "session", kind, seq, self.now, json.dumps(data, ensure_ascii=False)))
 
@@ -48,7 +50,7 @@ class CompletionSourceTests(unittest.TestCase):
         self.complete_turn()
         report, = self.source.poll()
         self.assertEqual((report.status, report.result), ("已完成", "最终答案"))
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("UPDATE session_v2 SET time_updated=?", (self.now + 20000,))
         self.assertEqual(self.source.poll()[0].fingerprint, report.fingerprint)
 
@@ -57,6 +59,31 @@ class CompletionSourceTests(unittest.TestCase):
         self.complete_turn()
         self.add_message(5, "user", {"text": "新任务"})
         self.assertEqual(self.source.poll(), [])
+
+    def test_read_connection_closes_on_success_and_error(self):
+        """无参数；真实连接在查询成功和解析异常后均立即关闭，不能依赖垃圾回收释放库文件。"""
+        connect = sqlite3.connect
+        for fails in (False, True):
+            with self.subTest(fails=fails):
+                connections = []
+
+                def open_connection(*args, **kwargs):
+                    """args/kwargs为SQLite连接参数；保存真实连接以检查查询结束后的资源状态。"""
+                    conn = connect(*args, **kwargs)
+                    connections.append(conn)
+                    return conn
+
+                with patch("terminalConnection.completion.OpencodeSource.sqlite3.connect",
+                           side_effect=open_connection):
+                    if fails:
+                        with patch.object(self.source, "_poll_v2", side_effect=ValueError("模拟解析异常")):
+                            with self.assertRaises(ValueError):
+                                self.source.poll()
+                    else:
+                        self.assertEqual(self.source.poll(), [])
+                self.assertEqual(len(connections), 1)
+                with self.assertRaises(sqlite3.ProgrammingError):
+                    connections[0].execute("SELECT 1")
 
     def test_tool_pause_is_not_completion(self):
         """无参数；工具调用加idle不构成最终回答。"""
