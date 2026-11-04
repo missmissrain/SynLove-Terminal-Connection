@@ -1,0 +1,15 @@
+/config/*.json
+!/config/*.example.json
+/runtime/
+/privateKeys/
+/备份/
+__pycache__/
+*.pyc
+.venv/
+*.log
+/Pairing.json
+*.private.json
+*.key
+*.pem
+*.zip
+/dist/
