@@ -83,6 +83,8 @@ SynLove 主程序通过私有 `config/terminalConnection.json` 指向本仓库�
 - `POST /v1/music`：提交音乐操作。
 - `POST /v1/notify`：接收 `codex` 或 `opencode` 来源的最终摘要，持久入队后返回确认。
 
+完成通知还需要在服务器私有配置中设置 `notificationInbox` 与 `notificationTarget`。前者指向主程序的 `runtime/dsh/backendNotifications`，后者填写 QQ 接收者标识；两项均不得提交到仓库。设备上的 Codex、OpenCode 通知开关分别控制对应来源。缺少目的地时，已启用来源的通知保留在服务器待发箱；已关闭来源的通知会被消耗，之后开启不会补发这些旧事件。接口的入队确认仅表示持久接收，实际到达聊天需由主程序发送链路确认。
+
 设备字段和安卓、嵌入式预留约定见 [设备登记说明](docs/DeviceRegistration.md)。
 
 ## 稳定性与权限
@@ -114,3 +116,4 @@ SynLove 主程序通过私有 `config/terminalConnection.json` 指向本仓库�
 - 加入签名、双实例、断线重传、命令不重复执行和通知持久交接测试。
 - 完成事件兼容 OpenCode 新旧数据库，首次建立历史基线，后续首次观测即已完成的新任务也可上报。
 - 主程序只读设备查询与后台操作权限分离，受管子任务不会被外部编码完成观测重复通知。
+- 修复未设置通知目的地时关闭事件积压的问题；增加缺少收件人、恢复配置与关闭后不补发的回归测试。

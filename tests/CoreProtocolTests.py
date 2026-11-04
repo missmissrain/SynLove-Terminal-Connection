@@ -296,6 +296,32 @@ class CoreProtocolTests(unittest.TestCase):
         self.manager.deliver_notifications()
         self.assertEqual(len(list((self.root / "inbox").glob("*.json"))), 1)
 
+    def test_disabled_notifications_are_consumed_without_a_destination(self):
+        """无参数；未配置收件人时也消耗关闭的来源，之后打开不能补发旧通知。"""
+        target = self.manager.config.pop("notificationTarget")
+        event = {"id": "3"*64, "source": "codex", "text": "关闭期间产生的旧结果"}
+        self.heartbeat(events=[event])
+        self.manager.deliver_notifications()
+        row = self.manager.store.db.execute("SELECT delivered FROM messages").fetchone()
+        self.assertEqual(row["delivered"], 1)
+        self.manager.config["notificationTarget"] = target
+        self.manager.store.update_device("deviceOne", {"settings": {"codex": True}})
+        self.manager.deliver_notifications()
+        self.assertFalse((self.root / "inbox").exists())
+
+    def test_enabled_notifications_wait_for_a_destination(self):
+        """无参数；已启用来源缺少收件人时保留事件，配置后交接一次且不提前建收件箱。"""
+        self.manager.store.update_device("deviceOne", {"settings": {"opencode": True}})
+        target = self.manager.config.pop("notificationTarget")
+        self.heartbeat(events=[{"id": "4"*64, "source": "opencode", "text": "等待目的地"}])
+        self.manager.deliver_notifications()
+        row = self.manager.store.db.execute("SELECT delivered FROM messages").fetchone()
+        self.assertEqual(row["delivered"], 0)
+        self.assertFalse((self.root / "inbox").exists())
+        self.manager.config["notificationTarget"] = target
+        self.manager.deliver_notifications()
+        self.assertEqual(len(list((self.root / "inbox").glob("*.json"))), 1)
+
     def test_completion_sources_baseline_enable_change_and_deduplicate(self):
         """无参数；首次不补发历史，新完成任务各记一条，反复扫描不重复。"""
         journal = TerminalJournal(self.root / "watcher.sqlite")

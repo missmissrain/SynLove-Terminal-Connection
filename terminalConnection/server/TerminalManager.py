@@ -66,10 +66,6 @@ class TerminalManager:
         """无参数；将终端持久通知写入服务器既有收件箱，去重ID稳定，不直接调用平台发送。"""
         target = self.config.get("notificationTarget")
         inbox_path = self.config.get("notificationInbox")
-        if not target or not inbox_path:
-            return
-        inbox = Path(inbox_path)
-        inbox.mkdir(parents=True,exist_ok=True)
         with self.store.lock:
             rows = self.store.db.execute("SELECT * FROM messages WHERE delivered=0 LIMIT 20").fetchall()
             for row in rows:
@@ -82,6 +78,11 @@ class TerminalManager:
                     self.store.db.execute("UPDATE messages SET delivered=1 WHERE id=?", (row["id"],))
                     self.store.db.commit()
                     continue
+                # 即使尚未配置收件人，也须消耗已关闭的通知，防止稍后开启时补发旧事件。
+                if not target or not inbox_path:
+                    continue
+                inbox = Path(inbox_path)
+                inbox.mkdir(parents=True,exist_ok=True)
                 key = hashlib.sha256(("terminal:"+row["id"]).encode()).hexdigest()
                 body = NoticeText.clean_text(event.get("text", ""))
                 if not body:
