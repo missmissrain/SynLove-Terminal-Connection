@@ -43,6 +43,8 @@ class TerminalAdminHandler(BaseHTTPRequestHandler):
             elif self.path=="/v1/health" and method=="GET":
                 result={"ok":True,"protocol":"synlove-terminal-v1","pid":os.getpid(),
                         "relayConnected":self.server.node.connected,
+                        "notificationsConfigured":bool(manager.config.get("notificationTarget")
+                                                       and manager.config.get("notificationInbox")),
                         "relayError":getattr(self.server.node,"last_error","")}
             elif self.path=="/v1/pair" and method=="POST":
                 result={"ok":True,"bundle":manager.pairing_bundle(body)}
