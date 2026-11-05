@@ -8,6 +8,7 @@ SynLove 的终端连接组件。将电脑登记为可发现、可控制的设备
 
 - 设备登记、签名心跳、在线状态与能力查询。
 - Windows CMD、Linux Shell 远程命令执行，输出有界，最长执行期限120秒。
+- 通过已有 SSH 隧道执行 SFTP 双向文件搬运、目录浏览与设备间转发，传输后校验 SHA-256，默认禁止覆盖。
 - 接收服务器解析的音乐地址，在目标电脑的交互用户会话中播放；支持暂停、继续和停止。
 - 只读观测本机 Codex、OpenCode 会话完成状态，将结果经 VPS 上报服务器。
 - 编码完成事件及命令结果持久保存；断线后重传，使用稳定业务 ID 去重。
@@ -74,7 +75,9 @@ VPS 必须支持 `/v1/tasks`、`/v1/tasks/:id` 与 `/ws/node`。实际 HTTPS 端
 | `POST /v1/commands` | 持久提交一次设备命令 |
 | `GET /v1/commands/:id` | 查询同一命令结果，不重新执行 |
 
-MCP 入口为 `terminalConnection/tools/TerminalMcp.py --config <管理配置路径>`，提供 `terminal_devices`、`remote_cmd_list`、`remote_cmd_probe`、`remote_cmd_run`、`terminal_music`。点歌和酷狗曲目解析仍由服务器上的酷狗工具完成。
+MCP 入口为 `terminalConnection/tools/TerminalMcp.py --config <管理配置路径>`，提供 `terminal_devices`、`remote_cmd_list`、`remote_cmd_probe`、`remote_cmd_run`、`terminal_music`，以及 `remote_file_targets`、`remote_file_list`、`remote_file_transfer`。设备列表同时返回 `fileTargets`，未配置 SSH 的设备不会被当作可传输。点歌和酷狗曲目解析仍由服务器上的酷狗工具完成。
+
+文件传输沿用 SSH 的地址、凭据和主机指纹，不新增监听端口。默认单文件上限 256 MiB，父目录须已存在，完整性验证成功后才原子提交。`local` 是 MCP 所在机器，使用前需按设备列表确认方向。详见 [文件传输说明](docs/FileTransfer.md)。
 
 SynLove 主程序通过私有 `config/terminalConnection.json` 指向本仓库与服务器本机管理 API。主程序保留 GUI/API 代理和 MCP 注册，不再运行本机编码完成观察者。SSH 维护兼容代码位于本仓库 `remoteControl`，日常设备控制使用签名终端协议。
 
@@ -106,6 +109,13 @@ SynLove 主程序通过私有 `config/terminalConnection.json` 指向本仓库�
 运行 `scripts/BuildRelease.py` 可生成仅包含源码、测试、文档与示例配置的归档；不包含运行依赖、身份、聊天记录或私人连接配置。
 
 ## 更新记录
+
+### v1.1 · 2026-11-05
+
+- 新增 SSH/SFTP 目录查询与文件双向传输，支持服务器、终端及终端间转发。
+- 设备列表增加文件目标；可通过 `deviceId` 将已有 SSH 目标绑定登记设备。
+- 新增 SHA-256 读回校验、原子发布、覆盖保护和隔离/真实小文件验证入口。
+- 文件传输模块纳入纯净发行包；凭据及运行数据继续只留在本机。
 
 ### v1.0 · 2026-11-04
 

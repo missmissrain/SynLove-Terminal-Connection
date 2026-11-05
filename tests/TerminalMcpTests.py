@@ -17,4 +17,7 @@ class TerminalMcpTests(unittest.TestCase):
                 "params": {"name": "remote_cmd_run", "arguments": {"target": "test", "command": "ver", "timeoutSec": timeout}}})
             self.assertTrue(result["result"]["isError"])
         tool.client.execute_command.assert_not_called()
-        self.assertEqual(len(tool.handle_message({"id": 2, "method": "tools/list"})["result"]["tools"]), 5)
+        names = {item["name"] for item in tool.handle_message(
+            {"id": 2, "method": "tools/list"})["result"]["tools"]}
+        self.assertEqual(len(names), 8)
+        self.assertTrue({"remote_file_targets", "remote_file_list", "remote_file_transfer"} <= names)

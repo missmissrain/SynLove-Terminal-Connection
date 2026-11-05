@@ -17,7 +17,7 @@ class BuildRelease:
         output = Path(output).resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
         files = []
-        for name in ("terminalConnection", "remoteControl", "scripts", "tests", "docs"):
+        for name in ("terminalConnection", "remoteControl", "fileTransfer", "scripts", "tests", "docs"):
             for file in (ROOT / name).rglob("*"):
                 if (file.is_file() and "__pycache__" not in file.parts
                     and file.suffix.lower() in (".py", ".ps1", ".cmd", ".md", ".mjs", ".js", ".css")):

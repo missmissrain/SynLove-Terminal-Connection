@@ -1,4 +1,4 @@
-"""终端MCP：查询登记设备、远控与音乐；通过本机服务器管理API执行，不持有终端私钥。
+"""终端MCP：查询登记设备、远控、音乐与SSH文件搬运；复用私有目标配置，不回传凭据。
 
 参数config为服务器管理员JSON；保留remote_cmd工具别名以兼容主程序现有工具描述。
 """
@@ -8,6 +8,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from terminalConnection.client.TerminalApiClient import TerminalApiClient
+from remoteControl.RemoteTargetConfig import RemoteTargetConfig
+from fileTransfer.FileTransferService import FileTransferService
+from fileTransfer.FileTransferTools import FileTransferTools
 
 
 class TerminalMcp:
@@ -16,6 +19,14 @@ class TerminalMcp:
     def __init__(self,config):
         """config为管理员配置路径；列举不暴露IP、公钥和令牌。"""
         self.client=TerminalApiClient(config)
+        # 桥接配置负责定位私有维护仓库；工具只接受预先登记的目标别名。
+        root = self.client.config.get("maintenanceRoot") or self.client.config.get("repositoryRoot")
+        if root:
+            base = Path(config).resolve().parent.parent if not isinstance(config, dict) else Path.cwd()
+            root = (base / root).resolve()
+        else:
+            root = Path(__file__).resolve().parents[2]
+        self.files=FileTransferTools(FileTransferService(RemoteTargetConfig(root)))
 
     def list_tools(self):
         """无参数；给出兼容旧工具名与显式终端工具名的稳定协议。"""
@@ -32,7 +43,7 @@ class TerminalMcp:
             {"name":"terminal_music","description":"控制指定设备的音乐：查询、暂停、继续、停止。点歌仍使用酷狗工具。",
              "inputSchema":{"type":"object","properties":{"target":target,
                  "action":{"type":"string","enum":["status","pause","resume","stop"]}},"required":["target","action"]}}
-        ]
+        ]+self.files.list_tools()
 
     def handle_message(self,message):
         """message为JSON-RPC；调用失败返回isError，不伪造设备执行成功。"""
@@ -60,6 +71,9 @@ class TerminalMcp:
                     devices=self.client.request_json("GET","/v1/devices")["devices"]
                     value={"devices":devices,"targets":[{"target":d["id"],"description":d["name"],
                         "enabled":bool(d["enabled"]),"online":d["online"],"capabilities":d["capabilities"]} for d in devices]}
+                    value["fileTargets"]=self.files.service.list_targets()
+                elif name in {tool["name"] for tool in self.files.list_tools()}:
+                    value=self.files.call_tool(name,args)
                 elif name=="remote_cmd_probe":
                     value=self.client.execute_command(args["target"],{"type":"probe"})
                 elif name=="remote_cmd_run":
@@ -78,9 +92,11 @@ class TerminalMcp:
                 raise ValueError("不支持的方法")
             return {"jsonrpc":"2.0","id":key,"result":result}
         except Exception as exc:
+            error = (str(exc) if isinstance(exc, ValueError) and not isinstance(exc, json.JSONDecodeError)
+                     else type(exc).__name__)
             return {"jsonrpc":"2.0","id":key,"result":{"isError":True,
                 "content":[{"type":"text","text":json.dumps({"ok":False,
-                    "error":"终端请求失败："+type(exc).__name__},ensure_ascii=False)}]}}
+                    "error":"终端请求失败："+error},ensure_ascii=False)}]}}
 
     def run_stdio(self):
         """无参数；每行一个JSON-RPC，stdout仅用于协议。"""
